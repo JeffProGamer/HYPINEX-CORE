@@ -2,287 +2,189 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>HYPINEX CORE — MAXIMUM MONOLITH</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>HYPINEX — AI Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 :root{
-  --bg:#050505;--panel:#0e0e0e;--border:#2a2a2a;--text:#e5e5e5;
-  --accent:#3a3a3a;--err:#f44336;--warn:#ff9800;--ok:#4caf50
+  --bg:#050505;
+  --panel:#0e0e0e;
+  --border:#2a2a2a;
+  --text:#e5e5e5;
+  --accent:#3a3a3a;
 }
 *{box-sizing:border-box;font-family:system-ui,Arial}
-body{margin:0;background:#050505;color:var(--text);overflow:hidden}
-
-#topbar{
-  height:48px;display:flex;align-items:center;gap:10px;
-  padding:0 14px;background:#0b0b0b;border-bottom:1px solid var(--border)
-}
-#tabs button,#sys button{
-  background:#111;border:1px solid var(--border);
-  color:var(--text);padding:6px 12px;border-radius:14px;cursor:pointer
-}
-#sys{margin-left:auto}
-
-#desktop{
-  position:absolute;top:48px;left:0;right:0;bottom:0;padding:14px
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
 }
 
-.window{
-  position:absolute;background:var(--panel);
-  border:1px solid var(--border);border-radius:14px;
-  min-width:420px;min-height:260px;
-  box-shadow:0 20px 60px rgba(0,0,0,.6)
+/* ===== TOP ===== */
+header{
+  padding:14px 20px;
+  border-bottom:1px solid var(--border);
+  font-weight:bold;
+  letter-spacing:2px;
 }
-.win-title{
-  height:34px;display:flex;align-items:center;gap:8px;
-  padding:0 10px;border-bottom:1px solid var(--border);
-  cursor:move;background:#0c0c0c
-}
-.win-btn{width:12px;height:12px;border-radius:50%;cursor:pointer}
-.close{background:#f44336}
-.min{background:#ff9800}
-.max{background:#4caf50}
-.win-title span{flex:1;font-size:13px}
-.win-content{padding:12px;height:calc(100% - 34px);overflow:auto}
 
-input,textarea,button{
-  background:#111;border:1px solid var(--border);
-  color:var(--text);padding:8px 12px;border-radius:14px
+/* ===== MAIN ===== */
+main{
+  flex:1;
+  display:flex;
+  gap:14px;
+  padding:14px;
 }
-textarea{resize:none}
 
-#command{
-  position:absolute;top:20%;left:50%;
-  transform:translateX(-50%);
-  width:520px;display:none;z-index:2000
+/* ===== INPUT ===== */
+#left{
+  width:320px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
-#notify{position:absolute;bottom:16px;right:16px;z-index:3000}
-.notify{
-  background:#111;border:1px solid var(--border);
-  padding:10px 14px;border-radius:12px;margin-top:8px
+textarea{
+  flex:1;
+  background:var(--panel);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:12px;
+  border-radius:12px;
+  resize:none;
 }
-#console{
-  position:absolute;bottom:0;left:0;right:0;height:180px;
-  background:#060606;border-top:1px solid var(--border);
-  font-family:monospace;font-size:12px;
-  overflow:auto;display:none;padding:8px
+select,button{
+  background:#111;
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:10px;
+  border-radius:12px;
+  cursor:pointer;
 }
+
+/* ===== OUTPUT ===== */
+#right{
+  flex:1;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+}
+#tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+}
+#tabs button{
+  flex:1;
+  border:none;
+  background:#0b0b0b;
+}
+#tabs button.active{
+  background:var(--accent);
+}
+.output{
+  flex:1;
+  padding:14px;
+  overflow:auto;
+  display:none;
+}
+.output.active{display:block}
+pre{
+  background:#050505;
+  padding:12px;
+  border-radius:10px;
+  overflow:auto;
+}
+img{max-width:100%;border-radius:12px}
 </style>
 </head>
 <body>
 
-<div id="topbar">
-  <b>HYPINEX</b>
-  <div id="tabs">
-    <button onclick="launch('search')">Search</button>
-    <button onclick="launch('images')">Images</button>
-    <button onclick="launch('videos')">Videos</button>
-    <button onclick="launch('games')">Games</button>
-    <button onclick="launch('ai')">AI</button>
-    <button onclick="launch('settings')">Settings</button>
+<header>HYPINEX</header>
+
+<main>
+  <!-- INPUT -->
+  <div id="left">
+    <textarea id="prompt" placeholder="Ask anything… scripts, explanations, images (SFW)"></textarea>
+    <select id="mode">
+      <option value="chat">Answer</option>
+      <option value="script">Script</option>
+      <option value="image">Image (SFW)</option>
+    </select>
+    <button onclick="send()">Send</button>
   </div>
-  <div id="sys">
-    <button onclick="toggleConsole()">Console</button>
-    <button onclick="openCommand()">⌘</button>
+
+  <!-- OUTPUT -->
+  <div id="right">
+    <div id="tabs">
+      <button onclick="show('answer')" class="active">Answer</button>
+      <button onclick="show('code')">Code</button>
+      <button onclick="show('image')">Image</button>
+    </div>
+
+    <div id="answer" class="output active"></div>
+    <div id="code" class="output"><pre></pre></div>
+    <div id="image" class="output"></div>
   </div>
-</div>
-
-<div id="desktop"></div>
-
-<div id="command">
-  <input id="cmdInput" placeholder="Command (search, images, clear, grant fs)" />
-</div>
-
-<div id="notify"></div>
-<div id="console"></div>
+</main>
 
 <script>
-/* ================= CORE REFERENCES ================= */
-const desktop=document.getElementById("desktop");
-const consoleEl=document.getElementById("console");
-const notifyEl=document.getElementById("notify");
-const command=document.getElementById("command");
-const cmdInput=document.getElementById("cmdInput");
+const promptEl = document.getElementById("prompt");
+const modeEl = document.getElementById("mode");
 
-let zIndex=10;
-
-/* ================= KERNEL ================= */
-const Kernel={
-  log(m){
-    consoleEl.innerHTML+=`[${new Date().toLocaleTimeString()}] ${m}<br>`;
-    consoleEl.scrollTop=consoleEl.scrollHeight;
-  },
-  notify(m){
-    const n=document.createElement("div");
-    n.className="notify";n.textContent=m;
-    notifyEl.appendChild(n);setTimeout(()=>n.remove(),4000);
-  }
-};
-
-/* ================= PERMISSIONS ================= */
-const Permissions={
-  caps:{fs:true,network:false},
-  require(c){
-    if(!this.caps[c]){Kernel.notify("Permission denied: "+c);throw c;}
-  },
-  grant(c){this.caps[c]=true;Kernel.log("Granted "+c);}
-};
-
-/* ================= FILESYSTEM (IndexedDB) ================= */
-const FS={
-  db:null,
-  async init(){
-    return new Promise(res=>{
-      const r=indexedDB.open("HYPINEX_FS",1);
-      r.onupgradeneeded=e=>{
-        e.target.result.createObjectStore("files",{keyPath:"path"});
-      };
-      r.onsuccess=e=>{this.db=e.target.result;Kernel.log("FS mounted");res();};
-    });
-  },
-  write(path,data){
-    Permissions.require("fs");
-    const tx=this.db.transaction("files","readwrite");
-    tx.objectStore("files").put({path,data});
-  },
-  read(path){
-    Permissions.require("fs");
-    return new Promise(res=>{
-      const tx=this.db.transaction("files","readonly");
-      const r=tx.objectStore("files").get(path);
-      r.onsuccess=()=>res(r.result?.data||null);
-    });
-  }
-};
-
-/* ================= SESSION ================= */
-const Session={
-  save(){
-    const wins=[...document.querySelectorAll(".window")].map(w=>({
-      app:w.dataset.app,x:w.style.left,y:w.style.top
-    }));
-    FS.write("/system/session",wins);
-  },
-  async restore(){
-    const data=await FS.read("/system/session");
-    if(data) data.forEach(w=>launch(w.app));
-  }
-};
-
-/* ================= WINDOW MANAGER ================= */
-function createWindow(title,app,content){
-  const w=document.createElement("div");
-  w.className="window";w.dataset.app=app;
-  w.style.left="120px";w.style.top="100px";w.style.zIndex=zIndex++;
-
-  w.innerHTML=`
-    <div class="win-title">
-      <div class="win-btn close"></div>
-      <div class="win-btn min"></div>
-      <div class="win-btn max"></div>
-      <span>${title}</span>
-    </div>
-    <div class="win-content"></div>
-  `;
-  w.querySelector(".win-content").appendChild(content);
-  desktop.appendChild(w);
-
-  w.onclick=()=>w.style.zIndex=zIndex++;
-  drag(w);
-
-  w.querySelector(".close").onclick=()=>w.remove();
-  w.querySelector(".min").onclick=()=>w.style.display="none";
-  w.querySelector(".max").onclick=()=>w.style.width="90%";
+function show(tab){
+  document.querySelectorAll(".output").forEach(o=>o.classList.remove("active"));
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.remove("active"));
+  document.getElementById(tab).classList.add("active");
+  [...document.querySelectorAll("#tabs button")]
+    .find(b=>b.textContent.toLowerCase()===tab)
+    .classList.add("active");
 }
 
-function drag(w){
-  const t=w.querySelector(".win-title");let ox,oy;
-  t.onmousedown=e=>{
-    ox=e.clientX-w.offsetLeft;oy=e.clientY-w.offsetTop;
-    document.onmousemove=m=>{
-      w.style.left=m.clientX-ox+"px";
-      w.style.top=m.clientY-oy+"px";
-    };
-    document.onmouseup=()=>document.onmousemove=null;
-  };
-}
+async function send(){
+  const prompt = promptEl.value.trim();
+  if(!prompt) return;
 
-/* ================= MODULES ================= */
-const UI={
-  search(){
-    const d=document.createElement("div");
-    d.innerHTML=`<input placeholder="Search"><button>Go</button><div></div>`;
-    d.querySelector("button").onclick=()=>{
-      d.lastElementChild.textContent="Result OK";
-    };
-    return d;
-  },
-  images(){
-    const d=document.createElement("div");
-    d.innerHTML=`<input placeholder="Image URL"><button>Load</button><img style="max-width:100%">`;
-    d.querySelector("button").onclick=()=>{
-      d.querySelector("img").src=d.querySelector("input").value;
-    };
-    return d;
-  },
-  videos(){
-    const d=document.createElement("div");
-    d.innerHTML=`<input placeholder="MP4 URL"><button>Play</button><video controls style="width:100%"></video>`;
-    d.querySelector("button").onclick=()=>{
-      d.querySelector("video").src=d.querySelector("input").value;
-    };
-    return d;
-  },
-  games(){const d=document.createElement("div");d.textContent="Launcher ready";return d;},
-  ai(){const d=document.createElement("div");d.innerHTML="<p>AI offline core</p>";return d;},
-  settings(){const d=document.createElement("div");d.textContent="System OK";return d;}
-};
+  const mode = modeEl.value;
+  let url = "/api/ai/chat";
+  if(mode==="script") url="/api/ai/script";
+  if(mode==="image") url="/api/ai/image";
 
-function launch(app){
-  createWindow("HYPINEX."+app.toUpperCase(),app,UI[app]());
-}
+  const res = await fetch(url,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ prompt })
+  });
 
-/* ================= COMMAND ================= */
-function openCommand(){command.style.display="block";cmdInput.focus();}
-document.addEventListener("keydown",e=>{
-  if(e.ctrlKey&&e.key==="k")openCommand();
-});
-cmdInput.onkeydown=e=>{
-  if(e.key==="Enter"){
-    const c=cmdInput.value.trim();
-    if(UI[c])launch(c);
-    if(c==="clear")consoleEl.innerHTML="";
-    if(c.startsWith("grant"))Permissions.grant(c.split(" ")[1]);
-    command.style.display="none";cmdInput.value="";
+  const data = await res.json();
+
+  if(mode==="chat"){
+    show("answer");
+    document.getElementById("answer").textContent = data.answer || JSON.stringify(data);
   }
-};
 
-/* ================= NETWORK HOOK ================= */
-const Net={
-  async ping(){
-    const r=await fetch("/api/ping");return r.json();
+  if(mode==="script"){
+    show("code");
+    document.querySelector("#code pre").textContent = data.code || "No code returned";
   }
-};
 
-/* ================= CONSOLE ================= */
-function toggleConsole(){
-  consoleEl.style.display=consoleEl.style.display==="none"?"block":"none";
+  if(mode==="image"){
+    show("image");
+    const img=document.createElement("img");
+    img.alt="AI image placeholder";
+    img.src="data:image/svg+xml;base64,"+btoa(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
+        <rect width='100%' height='100%' fill='#111'/>
+        <text x='50%' y='50%' fill='#aaa' text-anchor='middle'>Image request sent</text>
+      </svg>`
+    );
+    document.getElementById("image").innerHTML="";
+    document.getElementById("image").appendChild(img);
+  }
 }
-
-/* ================= SERVICE WORKER ================= */
-if("serviceWorker"in navigator){
-  navigator.serviceWorker.register("/sw.js");
-  Kernel.log("SW registered");
-}
-
-/* ================= BOOT ================= */
-(async()=>{
-  await FS.init();
-  await Session.restore();
-  Kernel.log("Kernel booted");
-  Kernel.notify("HYPINEX ready");
-})();
-window.addEventListener("beforeunload",()=>Session.save());
 </script>
 </body>
 </html>

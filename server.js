@@ -5,15 +5,9 @@ const url = require("url");
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, "data");
-
-/* ========================== ENSURE DATA DIR ========================== */
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 /* ========================== MIME TYPES ========================== */
-const TYPES = {
+const MIME = {
   ".html": "text/html",
   ".js": "text/javascript",
   ".css": "text/css",
@@ -25,22 +19,6 @@ const TYPES = {
   ".json": "application/json"
 };
 
-/* ========================== PERMISSIONS ========================== */
-const Permissions = {
-  fs: true,
-  session: true,
-  network: true
-};
-
-function requirePerm(res, perm) {
-  if (!Permissions[perm]) {
-    res.writeHead(403, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Permission denied", perm }));
-    return false;
-  }
-  return true;
-}
-
 /* ========================== HELPERS ========================== */
 function send(res, code, data, type = "application/json") {
   res.writeHead(code, { "Content-Type": type });
@@ -50,7 +28,7 @@ function send(res, code, data, type = "application/json") {
 function readBody(req) {
   return new Promise(resolve => {
     let body = "";
-    req.on("data", c => (body += c));
+    req.on("data", chunk => (body += chunk));
     req.on("end", () => {
       try {
         resolve(JSON.parse(body || "{}"));
@@ -61,73 +39,111 @@ function readBody(req) {
   });
 }
 
-/* ========================== API HANDLER ========================== */
+/* ========================== AI CORE (PLUG-IN READY) ========================== */
+/*
+  Replace these functions with:
+  - OpenAI
+  - Local LLM
+  - Custom inference server
+*/
+
+const AI = {
+  async chat(prompt) {
+    return {
+      type: "text",
+      answer: `AI response placeholder.\nPrompt received:\n${prompt}`
+    };
+  },
+
+  async script(prompt, language = "javascript") {
+    return {
+      type: "code",
+      language,
+      code: `// Generated ${language} script\n// Prompt: ${prompt}\n\nconsole.log("Hello from AI");`
+    };
+  },
+
+  async image(prompt) {
+    /* SFW ENFORCEMENT */
+    const blocked = ["nsfw", "nude", "sex", "explicit"];
+    if (blocked.some(w => prompt.toLowerCase().includes(w))) {
+      return { error: "Prompt violates SFW policy" };
+    }
+
+    return {
+      type: "image",
+      note: "Image generation placeholder (SFW enforced)",
+      prompt
+    };
+  },
+
+  async explain(topic) {
+    return {
+      type: "explanation",
+      structure: {
+        summary: `Explanation for: ${topic}`,
+        steps: [
+          "Understand the problem",
+          "Break it into parts",
+          "Apply logic",
+          "Deliver result"
+        ]
+      }
+    };
+  }
+};
+
+/* ========================== API ROUTER ========================== */
 async function handleAPI(req, res) {
   const parsed = url.parse(req.url, true);
-  const endpoint = parsed.pathname.replace("/api/", "");
+  const endpoint = parsed.pathname;
 
   /* ---- HEALTH ---- */
-  if (endpoint === "ping") {
-    return send(res, 200, {
-      status: "ok",
-      time: Date.now()
-    });
+  if (endpoint === "/api/ping") {
+    return send(res, 200, { status: "ok", time: Date.now() });
   }
 
-  /* ---- FILESYSTEM WRITE ---- */
-  if (endpoint === "fs/write" && req.method === "POST") {
-    if (!requirePerm(res, "fs")) return;
-    const { path: p, data } = await readBody(req);
-    if (!p) return send(res, 400, { error: "No path" });
-
-    const full = path.join(DATA_DIR, p);
-    fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, JSON.stringify(data, null, 2));
-
-    return send(res, 200, { ok: true });
+  /* ---- AI CHAT ---- */
+  if (endpoint === "/api/ai/chat" && req.method === "POST") {
+    const { prompt } = await readBody(req);
+    if (!prompt) return send(res, 400, { error: "Missing prompt" });
+    return send(res, 200, await AI.chat(prompt));
   }
 
-  /* ---- FILESYSTEM READ ---- */
-  if (endpoint === "fs/read" && req.method === "POST") {
-    if (!requirePerm(res, "fs")) return;
-    const { path: p } = await readBody(req);
-    const full = path.join(DATA_DIR, p);
-    if (!fs.existsSync(full)) return send(res, 404, { error: "Not found" });
-
-    return send(res, 200, JSON.parse(fs.readFileSync(full)));
+  /* ---- AI SCRIPTING ---- */
+  if (endpoint === "/api/ai/script" && req.method === "POST") {
+    const { prompt, language } = await readBody(req);
+    if (!prompt) return send(res, 400, { error: "Missing prompt" });
+    return send(res, 200, await AI.script(prompt, language));
   }
 
-  /* ---- SESSION SAVE ---- */
-  if (endpoint === "session/save" && req.method === "POST") {
-    if (!requirePerm(res, "session")) return;
-    const body = await readBody(req);
-    fs.writeFileSync(
-      path.join(DATA_DIR, "session.json"),
-      JSON.stringify(body, null, 2)
-    );
-    return send(res, 200, { ok: true });
+  /* ---- AI IMAGE (SFW) ---- */
+  if (endpoint === "/api/ai/image" && req.method === "POST") {
+    const { prompt } = await readBody(req);
+    if (!prompt) return send(res, 400, { error: "Missing prompt" });
+    return send(res, 200, await AI.image(prompt));
   }
 
-  /* ---- SESSION LOAD ---- */
-  if (endpoint === "session/load") {
-    if (!requirePerm(res, "session")) return;
-    const f = path.join(DATA_DIR, "session.json");
-    if (!fs.existsSync(f)) return send(res, 200, []);
-    return send(res, 200, JSON.parse(fs.readFileSync(f)));
+  /* ---- AI EXPLAIN ---- */
+  if (endpoint === "/api/ai/explain" && req.method === "POST") {
+    const { topic } = await readBody(req);
+    if (!topic) return send(res, 400, { error: "Missing topic" });
+    return send(res, 200, await AI.explain(topic));
   }
 
-  /* ---- UNKNOWN API ---- */
-  send(res, 404, { error: "Unknown API endpoint" });
+  return send(res, 404, { error: "Unknown API endpoint" });
 }
 
-/* ========================== STATIC FILE SERVER ========================== */
+/* ========================== STATIC SERVER ========================== */
 function serveFile(res, filePath) {
   if (!fs.existsSync(filePath)) {
     res.writeHead(404);
     return res.end("404 Not Found");
   }
+
   const ext = path.extname(filePath);
-  const type = TYPES[ext] || "application/octet-stream";
+  const type = MIME[ext] || "application/octet-stream";
+
   fs.readFile(filePath, (err, data) => {
     if (err) {
       res.writeHead(500);
@@ -144,8 +160,8 @@ http.createServer(async (req, res) => {
     return handleAPI(req, res);
   }
 
-  let file = req.url === "/" ? "/SE.html" : req.url;
+  const file = req.url === "/" ? "/SE.html" : req.url;
   serveFile(res, path.join(ROOT, file));
 }).listen(PORT, () => {
-  console.log("HYPINEX CORE running on port", PORT);
+  console.log("HYPINEX AI backend running on port", PORT);
 });
