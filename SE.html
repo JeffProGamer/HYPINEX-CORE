@@ -2,189 +2,218 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>HYPINEX — AI Hub</title>
+<title>HYPINEX — CodeX AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Monaco -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 
 <style>
 :root{
-  --bg:#050505;
-  --panel:#0e0e0e;
-  --border:#2a2a2a;
-  --text:#e5e5e5;
-  --accent:#3a3a3a;
+  --bg:#050505;--panel:#0d0d0d;--border:#2a2a2a;
+  --text:#e6e6e6;--accent:#3a3a3a;--warn:#ff5555
 }
-*{box-sizing:border-box;font-family:system-ui,Arial}
+*{box-sizing:border-box;font-family:system-ui}
 body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  display:flex;
-  flex-direction:column;
-  height:100vh;
+  margin:0;background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column
 }
-
-/* ===== TOP ===== */
 header{
-  padding:14px 20px;
-  border-bottom:1px solid var(--border);
-  font-weight:bold;
-  letter-spacing:2px;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px
 }
-
-/* ===== MAIN ===== */
-main{
-  flex:1;
-  display:flex;
-  gap:14px;
-  padding:14px;
+select,input,button,textarea{
+  background:#111;border:1px solid var(--border);
+  color:var(--text);border-radius:10px;padding:8px
 }
-
-/* ===== INPUT ===== */
-#left{
-  width:320px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-textarea{
-  flex:1;
-  background:var(--panel);
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:12px;
-  border-radius:12px;
-  resize:none;
-}
-select,button{
-  background:#111;
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:10px;
-  border-radius:12px;
-  cursor:pointer;
-}
-
-/* ===== OUTPUT ===== */
-#right{
-  flex:1;
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:14px;
-  display:flex;
-  flex-direction:column;
-}
-#tabs{
-  display:flex;
-  border-bottom:1px solid var(--border);
-}
-#tabs button{
-  flex:1;
-  border:none;
-  background:#0b0b0b;
-}
-#tabs button.active{
-  background:var(--accent);
-}
-.output{
-  flex:1;
-  padding:14px;
-  overflow:auto;
-  display:none;
-}
-.output.active{display:block}
-pre{
-  background:#050505;
-  padding:12px;
-  border-radius:10px;
-  overflow:auto;
-}
-img{max-width:100%;border-radius:12px}
+main{flex:1;display:flex;gap:10px;padding:10px}
+#left{width:340px;display:flex;flex-direction:column;gap:8px}
+#tree{flex:1;overflow:auto;font-size:12px;border:1px solid var(--border);border-radius:10px;padding:6px}
+.node{cursor:pointer;padding:4px;border-left:2px solid #444;margin-left:6px}
+.node:hover{background:#111}
+#right{flex:1;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+#editor{flex:1}
+#chat{flex:1;padding:10px;overflow:auto;white-space:pre-wrap}
+.badge{font-size:11px;color:#aaa}
+.warn{color:var(--warn);font-size:12px}
+.hidden{display:none}
+footer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--border)}
 </style>
 </head>
+
 <body>
 
-<header>HYPINEX</header>
+<header>
+  <b>HYPINEX — CodeX</b>
+
+  <select id="model">
+    <option value="fast">Fast</option>
+    <option value="smart">Smart</option>
+    <option value="codex">CodeX</option>
+    <option value="image">Image</option>
+  </select>
+
+  <span class="badge" id="quota">quota: —</span>
+
+  <input id="token" placeholder="Auth token (optional)">
+</header>
 
 <main>
-  <!-- INPUT -->
+  <!-- LEFT -->
   <div id="left">
-    <textarea id="prompt" placeholder="Ask anything… scripts, explanations, images (SFW)"></textarea>
-    <select id="mode">
-      <option value="chat">Answer</option>
-      <option value="script">Script</option>
-      <option value="image">Image (SFW)</option>
-    </select>
+    <textarea id="prompt" placeholder="Ask anything or paste code…"></textarea>
+
+    <input type="file" id="files" multiple>
+
+    <div id="moderation" class="warn hidden"></div>
+
     <button onclick="send()">Send</button>
+
+    <div id="tree"><b>Conversation Tree</b></div>
   </div>
 
-  <!-- OUTPUT -->
+  <!-- RIGHT -->
   <div id="right">
-    <div id="tabs">
-      <button onclick="show('answer')" class="active">Answer</button>
-      <button onclick="show('code')">Code</button>
-      <button onclick="show('image')">Image</button>
-    </div>
-
-    <div id="answer" class="output active"></div>
-    <div id="code" class="output"><pre></pre></div>
-    <div id="image" class="output"></div>
+    <div id="chat"></div>
+    <div id="editor"></div>
   </div>
 </main>
 
-<script>
-const promptEl = document.getElementById("prompt");
-const modeEl = document.getElementById("mode");
+<footer>
+  <button onclick="cancel()">Cancel</button>
+  <button onclick="clearChat()">Clear</button>
+</footer>
 
-function show(tab){
-  document.querySelectorAll(".output").forEach(o=>o.classList.remove("active"));
-  document.querySelectorAll("#tabs button").forEach(b=>b.classList.remove("active"));
-  document.getElementById(tab).classList.add("active");
-  [...document.querySelectorAll("#tabs button")]
-    .find(b=>b.textContent.toLowerCase()===tab)
-    .classList.add("active");
+<script>
+/* ================= STATE ================= */
+let controller=null;
+let parent=null;
+let db;
+
+/* ================= INDEXED DB ================= */
+const openDB=indexedDB.open("hypinex",1);
+openDB.onupgradeneeded=e=>{
+  db=e.target.result;
+  db.createObjectStore("tree",{keyPath:"id"});
+};
+openDB.onsuccess=e=>{db=e.target.result;loadTree()};
+
+function saveNode(n){
+  const tx=db.transaction("tree","readwrite");
+  tx.objectStore("tree").put(n);
+}
+function loadTree(){
+  const tx=db.transaction("tree","readonly");
+  tx.objectStore("tree").getAll().onsuccess=e=>{
+    renderTree(e.target.result)
+  }
 }
 
+/* ================= TREE ================= */
+function renderTree(nodes){
+  const t=document.getElementById("tree");
+  t.innerHTML="<b>Conversation Tree</b>";
+  nodes.forEach(n=>{
+    const d=document.createElement("div");
+    d.className="node";
+    d.textContent=n.prompt.slice(0,40);
+    d.onclick=()=>parent=n.id;
+    t.appendChild(d);
+  });
+}
+
+/* ================= MONACO ================= */
+let editor;
+require.config({ paths:{ vs:"https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" }});
+require(["vs/editor/editor.main"],()=>{
+  editor=monaco.editor.create(document.getElementById("editor"),{
+    value:"",
+    language:"plaintext",
+    theme:"vs-dark",
+    automaticLayout:true
+  });
+});
+
+/* ================= SEND ================= */
 async function send(){
-  const prompt = promptEl.value.trim();
+  if(controller) controller.abort();
+  controller=new AbortController();
+
+  const prompt=document.getElementById("prompt").value.trim();
   if(!prompt) return;
 
-  const mode = modeEl.value;
-  let url = "/api/ai/chat";
-  if(mode==="script") url="/api/ai/script";
-  if(mode==="image") url="/api/ai/image";
+  const node={id:crypto.randomUUID(),parent,prompt};
+  saveNode(node); parent=node.id;
 
-  const res = await fetch(url,{
+  const model=document.getElementById("model").value;
+  const files=[...document.getElementById("files").files];
+
+  const payload={prompt,parent,model,files:[]};
+
+  for(const f of files){
+    const buf=await f.arrayBuffer();
+    payload.files.push({
+      name:f.name,type:f.type,
+      data:btoa(String.fromCharCode(...new Uint8Array(buf)))
+    });
+  }
+
+  document.getElementById("chat").textContent="";
+  editor.setValue("");
+
+  const res=await fetch("/api/ai/stream",{
     method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ prompt })
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":document.getElementById("token").value||""
+    },
+    body:JSON.stringify(payload),
+    signal:controller.signal
   });
 
-  const data = await res.json();
+  if(!res.ok) return;
 
-  if(mode==="chat"){
-    show("answer");
-    document.getElementById("answer").textContent = data.answer || JSON.stringify(data);
-  }
+  const reader=res.body.getReader();
+  const dec=new TextDecoder();
 
-  if(mode==="script"){
-    show("code");
-    document.querySelector("#code pre").textContent = data.code || "No code returned";
-  }
+  while(true){
+    const {value,done}=await reader.read();
+    if(done) break;
+    const chunk=dec.decode(value);
 
-  if(mode==="image"){
-    show("image");
-    const img=document.createElement("img");
-    img.alt="AI image placeholder";
-    img.src="data:image/svg+xml;base64,"+btoa(
-      `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'>
-        <rect width='100%' height='100%' fill='#111'/>
-        <text x='50%' y='50%' fill='#aaa' text-anchor='middle'>Image request sent</text>
-      </svg>`
-    );
-    document.getElementById("image").innerHTML="";
-    document.getElementById("image").appendChild(img);
+    const msg=JSON.parse(chunk);
+
+    if(msg.blocked){
+      const m=document.getElementById("moderation");
+      m.textContent="Blocked: "+msg.reason;
+      m.classList.remove("hidden");
+      break;
+    }
+
+    if(msg.quota) document.getElementById("quota").textContent="quota: "+msg.quota;
+
+    if(msg.type==="text"){
+      document.getElementById("chat").textContent+=msg.data;
+    }
+    if(msg.type==="code"){
+      editor.setValue(editor.getValue()+msg.data);
+      monaco.editor.setModelLanguage(editor.getModel(),msg.language||"plaintext");
+    }
+    if(msg.type==="image"){
+      const img=new Image();
+      img.src=msg.data;
+      document.getElementById("chat").appendChild(img);
+    }
   }
 }
+
+/* ================= CONTROL ================= */
+function cancel(){ if(controller) controller.abort() }
+function clearChat(){
+  document.getElementById("chat").textContent="";
+  editor.setValue("");
+}
 </script>
+
 </body>
 </html>
