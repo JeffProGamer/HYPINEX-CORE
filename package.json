@@ -1,0 +1,12 @@
+{
+  "name": "hypinex-core",
+  "version": "1.0.0",
+  "description": "HYPINEX Platform Core",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
