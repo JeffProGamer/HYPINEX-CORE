@@ -1,11 +1,13 @@
+// server.js
 import http from "http";
 import fs from "fs";
 import path from "path";
-import fetch from "node-fetch";
 import OpenAI from "openai";
 
 const PORT = process.env.PORT || 3000;
 const ROOT = process.cwd();
+
+// Initialize OpenAI if API key exists
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
@@ -36,18 +38,12 @@ function moderatePrompt(prompt, mode) {
   const lower = prompt.toLowerCase();
   for (const word of banned) {
     if (lower.includes(word)) {
-      return {
-        blocked: true,
-        reason: `Disallowed content: ${word}`
-      };
+      return { blocked: true, reason: `Disallowed content: ${word}` };
     }
   }
 
   if (mode === "image" && lower.includes("real person")) {
-    return {
-      blocked: true,
-      reason: "Real-person image generation not allowed"
-    };
+    return { blocked: true, reason: "Real-person image generation not allowed" };
   }
 
   return { blocked: false };
@@ -58,16 +54,11 @@ function moderatePrompt(prompt, mode) {
 =========================== */
 function resolveModel(model) {
   switch (model) {
-    case "fast":
-      return { provider: "openai", model: "gpt-4o-mini" };
-    case "smart":
-      return { provider: "openai", model: "gpt-4o" };
-    case "codex":
-      return { provider: "openai", model: "gpt-4.1" };
-    case "image":
-      return { provider: "openai", model: "gpt-image-1" };
-    default:
-      return { provider: "openai", model: "gpt-4o-mini" };
+    case "fast": return { provider: "openai", model: "gpt-4o-mini" };
+    case "smart": return { provider: "openai", model: "gpt-4o" };
+    case "codex": return { provider: "openai", model: "gpt-4.1" };
+    case "image": return { provider: "openai", model: "gpt-image-1" };
+    default: return { provider: "openai", model: "gpt-4o-mini" };
   }
 }
 
@@ -93,14 +84,12 @@ async function streamOpenAI(res, payload, route) {
 
   for await (const chunk of stream) {
     const token = chunk.choices[0]?.delta?.content;
-    if (token) {
-      sse(res, { type: "text", data: token });
-    }
+    if (token) sse(res, { type: "text", data: token });
   }
 }
 
 /* ===========================
-   OLLAMA STREAM (OPTIONAL)
+   OLLAMA STREAM (LOCAL)
 =========================== */
 async function streamOllama(res, payload) {
   const r = await fetch("http://localhost:11434/api/generate", {
@@ -114,12 +103,12 @@ async function streamOllama(res, payload) {
   });
 
   const reader = r.body.getReader();
-  const dec = new TextDecoder();
+  const decoder = new TextDecoder();
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    const txt = dec.decode(value);
+    const txt = decoder.decode(value);
     sse(res, { type: "text", data: txt });
   }
 }
@@ -154,26 +143,26 @@ http.createServer(async (req, res) => {
     });
 
     let body = "";
-    req.on("data", d => body += d);
+    req.on("data", chunk => body += chunk);
     req.on("end", async () => {
       try {
         const payload = JSON.parse(body);
         const { model, prompt } = payload;
 
-        /* MODERATION */
+        // Moderation
         const mod = moderatePrompt(prompt, model);
-        if (mod.blocked) {
-          return sse(res, mod);
-        }
+        if (mod.blocked) return sse(res, mod);
 
-        /* ROUTE */
+        // Resolve model
         const route = resolveModel(model);
 
+        // Image route
         if (model === "image") {
           await generateImage(res, payload);
           return res.end();
         }
 
+        // Ollama or OpenAI
         if (route.provider === "ollama") {
           await streamOllama(res, payload);
         } else {
@@ -189,9 +178,9 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  /* STATIC FILES */
-  let url = req.url === "/" ? "/SE.html" : req.url;
-  let filePath = path.join(ROOT, url);
+  // Serve static files
+  const urlPath = req.url === "/" ? "/SE.html" : req.url;
+  const filePath = path.join(ROOT, urlPath);
   const ext = path.extname(filePath);
 
   const types = {
